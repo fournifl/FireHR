@@ -6,6 +6,7 @@ __all__ = ['RegionST', 'extract_region', 'coords2bbox', 'split_region', 'merge_t
 # Cell
 import ee
 import os
+import time
 import requests
 import rasterio
 import pandas as pd
@@ -271,7 +272,7 @@ def download_data(R:RegionST, times, products, bands, path_save, scale=None, max
             fsave = '_'.join(fs[0].stem.split('_')[:-1]) + suffix
             merge_tifs(fs, fsave, delete=True)
 
-def download_data_ts(R:RegionST, products, bands, path_save, scale=None,
+def download_data_ts(R:RegionST, tile, products, bands, path_save, scale=None, max_cloud_fraction=40,
                      download_crop_size=1000, show_progress=False):
     if scale is None: scale = R.scale_meters
     ee.Initialize()
@@ -288,6 +289,8 @@ def download_data_ts(R:RegionST, products, bands, path_save, scale=None,
         for i in range(1, len(products)):
             imCol = imCol.merge(ee.ImageCollection(products[i]))
         imCol = filter_region(imCol, R, times=times, bands=bands)
+        if max_cloud_fraction is not None:
+            imCol = filter_cloudy(imCol, max_cloud_fraction=max_cloud_fraction)
         imCol = ee.ImageCollection(imCol)
         colList = imCol.toList(imCol.size())
 
@@ -306,7 +309,10 @@ def download_data_ts(R:RegionST, products, bands, path_save, scale=None,
                             f.write(r.content)
                         with zipfile.ZipFile(str(path_save/'data.zip'), 'r') as f:
                             files = f.namelist()
-                            f.extractall(str(path_save))
+                            print(files)
+                            if tile in files[0]:
+                                print('pouet !')
+                                f.extractall(str(path_save))
                         os.remove(str(path_save/'data.zip'))
                         zip_error = False
                     except:
@@ -314,9 +320,10 @@ def download_data_ts(R:RegionST, products, bands, path_save, scale=None,
                         os.remove(str(path_save/'data.zip'))
                         time.sleep(10)
             if zip_error: raise Exception(f'Failed to process {url}')
-            for f in files:
-                f = path_save/f
-                os.rename(str(f), str(path_save/f'{f.stem}_{j}{f.suffix}'))
+            if tile in files[0]:
+                for f in files:
+                    f = path_save/f
+                    os.rename(str(f), str(path_save/f'{f.stem}_{j}{f.suffix}'))
 
     # Merge files
     suffix = '.tif'
