@@ -311,7 +311,6 @@ def download_data_ts(R:RegionST, tile, products, bands, path_save, scale=None, m
                             files = f.namelist()
                             print(files)
                             if tile in files[0]:
-                                print('pouet !')
                                 f.extractall(str(path_save))
                         os.remove(str(path_save/'data.zip'))
                         zip_error = False
